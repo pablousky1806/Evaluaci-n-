@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Análisis descriptivo cuantitativo · Atún enlatado</title>
+<style>
+:root {
+  --bg: #eef4f6; --card: #ffffff; --text: #14303d; --muted: #5d7480;
+  --accent: #1f6f8b; --accent-soft: #dceef4; --line: #cfdde3; --err: #c0392b;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1e26; --card: #172a33; --text: #e6f1f4; --muted: #8fa6b0;
+    --accent: #5fb3cc; --accent-soft: #1d3b47; --line: #2c4550; --err: #ff8a7a;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1e26; --card: #172a33; --text: #e6f1f4; --muted: #8fa6b0;
+  --accent: #5fb3cc; --accent-soft: #1d3b47; --line: #2c4550; --err: #ff8a7a;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--text);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+body { padding: env(safe-area-inset-top, 0px) 14px env(safe-area-inset-bottom, 0px); }
+main { max-width: 680px; margin: 0 auto; padding: 16px 0 40px; }
+h1 { font-size: 1.3rem; margin: 0 0 4px; }
+h2 { font-size: 1rem; margin: 0 0 2px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 18px; margin-bottom: 14px; }
+.muted { color: var(--muted); font-size: .9rem; }
+.grupo { font-size: .72rem; letter-spacing: 1.5px; color: var(--accent); font-weight: 700; text-transform: uppercase; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 4px; }
+.chip { background: var(--accent-soft); color: var(--accent); font-weight: 700; letter-spacing: 1px;
+  padding: 5px 10px; border-radius: 8px; font-size: .95rem; }
+label.campo { display: block; font-size: .9rem; color: var(--muted); margin: 12px 0 4px; }
+input[type=text], input[type=date], textarea {
+  width: 100%; padding: 11px; border-radius: 10px; border: 1.5px solid var(--line);
+  background: var(--card); color: var(--text); font: inherit; }
+textarea { min-height: 90px; resize: vertical; }
+.atributo { margin-bottom: 14px; }
+.fila { display: grid; grid-template-columns: 52px 1fr; align-items: center; gap: 10px; margin: 6px 0; }
+.fila .chip { text-align: center; padding: 6px 0; }
+.anclas { display: flex; justify-content: space-between; font-size: .8rem; color: var(--muted); margin: 2px 0 0 62px; }
+input[type=range] { width: 100%; height: 34px; accent-color: var(--accent); margin: 0; }
+input[type=range].sin-marcar::-webkit-slider-thumb { opacity: 0; }
+input[type=range].sin-marcar::-moz-range-thumb { opacity: 0; }
+.btn { background: var(--accent); color: #fff; border: 0; border-radius: 10px; padding: 14px 18px;
+  font: inherit; font-weight: 600; cursor: pointer; width: 100%; min-height: 50px; margin-top: 8px; }
+.btn.sec { background: transparent; color: var(--accent); border: 1.5px solid var(--accent); }
+.err { color: var(--err); font-size: .9rem; min-height: 1.2em; margin-top: 8px; }
+.progreso { font-size: .9rem; color: var(--muted); margin: 6px 0 0; }
+textarea.csv { font-family: ui-monospace, monospace; font-size: .75rem; min-height: 160px; }
+</style>
+</head>
+<body>
+<main id="app"></main>
+
+<script>
+/* ===================== CONFIGURACIÓN ===================== */
+const CONFIG = {
+  titulo: "Cuestionario de análisis descriptivo cuantitativo",
+  subtitulo: "Atún enlatado · Escala no estructurada",
+  instrucciones: [
+    "Frente a usted se presentan muestras codificadas de atún. Evalúe cada muestra considerando exclusivamente la intensidad del atributo indicado.",
+    "Para cada atributo, mueva la línea de cada muestra a la posición que represente mejor su intensidad, desde MENOS hasta MÁS. La línea no muestra valores numéricos.",
+    "Utilice el mismo criterio para todas las muestras. Se permiten coincidencias. No evalúe agrado o desagrado; califique solo la intensidad percibida."
+  ],
+  // Códigos de muestra (ciegos). La relación código-marca NO aparece en esta página.
+  codigos: ["371", "528", "694", "147", "856"],
+  // URL de la aplicación web de Google Apps Script (ver instrucciones)
+  endpoint: "https://script.google.com/macros/s/AKfycbwzQWLsUcfTjdCUGgRdau0lrWoeWEpPOkhcDZa2kWHTGsJkXo04TDaRbOejAa_AWaPd/exec",
+  atributos: [
+    { grupo: "Vista", id: "color_rosado", nombre: "Intensidad de color rosado",
+      def: "Grado de tonalidad rosada observable en la carne del atún." },
+    { grupo: "Vista", id: "brillo", nombre: "Brillo superficial",
+      def: "Grado de luminosidad o reflexión observable en la superficie del producto." },
+    { grupo: "Olfato", id: "aroma_metalico", nombre: "Aroma metálico",
+      def: "Intensidad de notas aromáticas asociadas con metal o carácter ferroso." },
+    { grupo: "Olfato", id: "aroma_marino", nombre: "Aroma marino",
+      def: "Intensidad de notas aromáticas asociadas con pescado y ambiente marino." },
+    { grupo: "Olfato", id: "aroma_atun", nombre: "Aroma a atún",
+      def: "Intensidad del aroma característico del atún cocido/enlatado." },
+    { grupo: "Gusto", id: "sabor_salado", nombre: "Sabor salado",
+      def: "Intensidad de la sensación salada percibida durante la degustación." },
+    { grupo: "Gusto", id: "sabor_metalico", nombre: "Sabor metálico",
+      def: "Intensidad de la sensación gustativa metálica o ferrosa." },
+    { grupo: "Tacto / textura", id: "desmenuzabilidad", nombre: "Desmenuzabilidad",
+      def: "Facilidad con la que la carne se separa en fibras o fragmentos al manipularla o masticarla." }
+  ]
+};
+
+/* ===================== ESTADO ===================== */
+const estado = {
+  pantalla: "form",
+  orden: [],
+  marcas: {},          // marcas[atributo][codigo] = 0..100
+  error: "",
+  db: null,
+  user: null,
+  esAdmin: false,
+  csv: "",
+  adminMsg: ""
+};
+
+const app = document.getElementById("app");
+const esc = s => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+function barajar(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+async function capacidad(nombre) {
+  try { return await window.claude.use(nombre); } catch (e) { return null; }
+}
+
+/* ===================== FORMULARIO ===================== */
+function formulario() {
+  const chips = estado.orden.map(c => `<span class="chip">${esc(c)}</span>`).join("");
+  const bloques = CONFIG.atributos.map(a => {
+    const filas = estado.orden.map(c => {
+      const v = estado.marcas[a.id] && estado.marcas[a.id][c] !== undefined ? estado.marcas[a.id][c] : 50;
+      const sin = (estado.marcas[a.id] && estado.marcas[a.id][c] !== undefined) ? "" : " sin-marcar";
+      return `<div class="fila">
+        <span class="chip">${esc(c)}</span>
+        <input type="range" min="0" max="100" value="${v}" class="${sin.trim()}" data-a="${a.id}" data-c="${c}" aria-label="${esc(a.nombre)} muestra ${esc(c)}">
+      </div>`;
+    }).join("");
+    return `<div class="card atributo">
+      <div class="grupo">${esc(a.grupo)}</div>
+      <h2>${esc(a.nombre)}</h2>
+      <div class="muted">${esc(a.def)}</div>
+      <div style="margin-top:10px">${filas}</div>
+      <div class="anclas"><span>Menos</span><span>Más</span></div>
+    </div>`;
+  }).join("");
+
+  const total = CONFIG.atributos.length * estado.orden.length;
+  const hechos = Object.values(estado.marcas).reduce((n, o) => n + Object.keys(o).length, 0);
+
+  app.innerHTML = `
+    <div class="card">
+      <div class="grupo">Análisis descriptivo</div>
+      <h1>${esc(CONFIG.titulo)}</h1>
+      <div class="muted">${esc(CONFIG.subtitulo)}</div>
+      <div style="margin-top:12px">${CONFIG.instrucciones.map(t => `<p class="muted" style="margin:6px 0">${esc(t)}</p>`).join("")}</div>
+      <label class="campo" for="juez">Código del juez</label>
+      <input type="text" id="juez" value="${esc(estado.juez || "")}" autocomplete="off">
+      <label class="campo" for="fecha">Fecha</label>
+      <input type="date" id="fecha" value="${esc(estado.fecha || new Date().toISOString().slice(0, 10))}">
+      <label class="campo">Códigos de las muestras evaluadas</label>
+      <div class="chips">${chips}</div>
+      <div class="progreso" id="progreso">Marcas registradas: ${hechos} de ${total}</div>
+    </div>
+    ${bloques}
+    <div class="card">
+      <label class="campo" for="obs">Observaciones generales</label>
+      <textarea id="obs">${esc(estado.observaciones || "")}</textarea>
+      <div class="err" id="err">${esc(estado.error)}</div>
+      <button class="btn" id="enviar">Enviar evaluación</button>
+    </div>`;
+
+  enlazarFormulario();
+}
+
+function enlazarFormulario() {
+  document.querySelectorAll('input[type="range"]').forEach(el => {
+    el.addEventListener("input", () => {
+      const a = el.dataset.a, c = el.dataset.c;
+      estado.marcas[a] = estado.marcas[a] || {};
+      estado.marcas[a][c] = Number(el.value);
+      el.classList.remove("sin-marcar");
+      estado.error = "";
+      const total = CONFIG.atributos.length * estado.orden.length;
+      const hechos = Object.values(estado.marcas).reduce((n, o) => n + Object.keys(o).length, 0);
+      document.getElementById("progreso").textContent = `Marcas registradas: ${hechos} de ${total}`;
+    });
+  });
+  // Guardar lo escrito en juez, fecha y observaciones para no perderlo al re-renderizar
+  document.getElementById("juez").addEventListener("input", e => estado.juez = e.target.value);
+  document.getElementById("fecha").addEventListener("input", e => estado.fecha = e.target.value);
+  document.getElementById("obs").addEventListener("input", e => estado.observaciones = e.target.value);
+  document.getElementById("enviar").onclick = enviar;
+  const ver = document.getElementById("ver");
+  if (ver) ver.onclick = () => { estado.pantalla = "admin"; render(); };
+}
+
+/* ===================== ENVÍO ===================== */
+async function enviar() {
+  const juez = (estado.juez || "").trim();
+  const fecha = estado.fecha || new Date().toISOString().slice(0, 10);
+  const faltan = [];
+  CONFIG.atributos.forEach(a => estado.orden.forEach(c => {
+    if (!estado.marcas[a.id] || estado.marcas[a.id][c] === undefined) faltan.push(a.id + "/" + c);
+  }));
+  if (!juez) { estado.error = "Escriba su código de juez."; return render(); }
+  if (faltan.length) {
+    estado.error = `Faltan ${faltan.length} marcas por registrar. Mueva la línea de cada muestra en todos los atributos.`;
+    return render();
+  }
+  if (CONFIG.endpoint.startsWith("PEGAR")) {
+    estado.error = "Configuración pendiente: falta el endpoint de la hoja de cálculo.";
+    return render();
+  }
+  const btn = document.getElementById("enviar");
+  btn.disabled = true; btn.textContent = "Enviando…";
+  try {
+    // no-cors: Apps Script no devuelve cabeceras CORS; el envío se confirma en la hoja.
+    await fetch(CONFIG.endpoint, {
+      method: "POST",
+      mode: "no-cors",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({
+        juez, fecha,
+        orden: estado.orden,
+        marcas: estado.marcas,
+        observaciones: estado.observaciones || "",
+        creado: new Date().toISOString()
+      })
+    });
+    estado.pantalla = "gracias";
+    render();
+  } catch (e) {
+    btn.disabled = false; btn.textContent = "Enviar evaluación";
+    estado.error = "No se pudo enviar. Revise su conexión e intente de nuevo.";
+    render();
+  }
+}
+
+function gracias() {
+  app.innerHTML = `
+    <div class="card" style="text-align:center;padding:36px 18px">
+      <h1>Evaluación registrada</h1>
+      <p class="muted">Gracias por su participación.</p>
+      <button class="btn sec" id="otra">Registrar otra evaluación</button>
+    </div>`;
+  document.getElementById("otra").onclick = nueva;
+}
+
+function nueva() {
+  estado.marcas = {}; estado.observaciones = ""; estado.error = "";
+  estado.orden = barajar(CONFIG.codigos);
+  estado.pantalla = "form"; render();
+}
+
+/* ===================== RENDER Y ARRANQUE ===================== */
+function render() {
+  if (estado.pantalla === "form") return formulario();
+  if (estado.pantalla === "gracias") return gracias();
+}
+
+async function iniciar() {
+  estado.orden = barajar(CONFIG.codigos);
+  estado.esAdmin = false;
+  render();
+}
+iniciar();
+</script>
+</body>
+</html>
